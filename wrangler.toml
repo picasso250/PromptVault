@@ -1,0 +1,17 @@
+name = "promptvault"
+main = "src/index.ts"
+compatibility_date = "2026-05-16"
+
+routes = [
+  { pattern = "prompt.io99.xyz", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "promptvault-db"
+database_id = "3f198a20-8f16-4398-b49a-e8dceba5c5d8"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "promptvault-images"
