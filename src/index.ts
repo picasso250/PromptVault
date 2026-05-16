@@ -1,4 +1,5 @@
 interface Env {
+  ASSETS: Fetcher;
   DB: D1Database;
   BUCKET: R2Bucket;
   ADMIN_PASSWORD_HASH: string;
@@ -34,6 +35,10 @@ export default {
     const url = new URL(request.url);
 
     try {
+      if (request.method === "GET" && (url.pathname === "/styles.css" || url.pathname === "/submit.js")) {
+        return env.ASSETS.fetch(request);
+      }
+
       if (request.method === "GET" && url.pathname === "/") return home(env);
       if (request.method === "GET" && url.pathname === "/submit") return submitPage();
       if (request.method === "POST" && url.pathname === "/submit") return submitPrompt(request, env);
@@ -116,70 +121,7 @@ function submitPage(message = ""): Response {
           <button type="submit">提交审核</button>
         </form>
       </section>
-      <script>
-        (() => {
-          const input = document.getElementById("image-input");
-          const preview = document.getElementById("image-preview");
-          if (!input || !preview) return;
-
-          const image = preview.querySelector("img");
-          const label = preview.querySelector("span");
-          let previewUrl = "";
-
-          function showPreview(file) {
-            if (!file || !file.type.startsWith("image/")) return;
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-            previewUrl = URL.createObjectURL(file);
-            image.src = previewUrl;
-            label.textContent = file.name || "已粘贴的图片";
-            preview.hidden = false;
-          }
-
-          async function normalizeImage(file) {
-            if (!file || !file.type.startsWith("image/")) return file;
-            const bitmap = await createImageBitmap(file);
-            const canvas = document.createElement("canvas");
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
-            const context = canvas.getContext("2d");
-            context.drawImage(bitmap, 0, 0);
-            bitmap.close();
-            const blob = await new Promise((resolve, reject) => {
-              canvas.toBlob((value) => value ? resolve(value) : reject(new Error("图片转换失败")), "image/jpeg", 0.85);
-            });
-            return new File([blob], "prompt-image.jpg", { type: "image/jpeg", lastModified: Date.now() });
-          }
-
-          function setInputFile(file) {
-            const transfer = new DataTransfer();
-            transfer.items.add(file);
-            input.files = transfer.files;
-            showPreview(input.files[0]);
-          }
-
-          async function normalizeAndSet(file) {
-            try {
-              setInputFile(await normalizeImage(file));
-            } catch {
-              showPreview(file);
-            }
-          }
-
-          input.addEventListener("change", () => {
-            const file = input.files && input.files[0];
-            if (file) normalizeAndSet(file);
-          });
-
-          document.addEventListener("paste", (event) => {
-            const files = Array.from(event.clipboardData ? event.clipboardData.files : []);
-            const file = files.find((item) => item.type.startsWith("image/"));
-            if (!file) return;
-
-            normalizeAndSet(file);
-            event.preventDefault();
-          });
-        })();
-      </script>
+      <script src="/submit.js" defer></script>
     `)
   );
 }
@@ -487,12 +429,12 @@ function statusLabel(status: Status): string {
 
 function pageShell(body: string, title = SITE_NAME): string {
   return `<!doctype html>
-    <html lang="en">
+    <html lang="zh-CN">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>${escapeHtml(title)}</title>
-        <style>${styles()}</style>
+        <link rel="stylesheet" href="/styles.css">
       </head>
       <body>
         <main>${body}</main>
@@ -523,61 +465,4 @@ function escapeHtml(value: string): string {
 
 function excerpt(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}...` : value;
-}
-
-function styles(): string {
-  return `
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #18212f; background: #f5f7fb; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0; }
-    footer { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 40px; display: flex; gap: 16px; }
-    a { color: #1956a3; text-decoration: none; }
-    h1, h2 { margin: 0; line-height: 1.1; }
-    p { line-height: 1.6; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
-    .topbar h1 { font-size: clamp(34px, 7vw, 72px); }
-    .topbar p { margin: 10px 0 0; color: #5c6675; }
-    .button, button { border: 0; border-radius: 8px; background: #1956a3; color: white; padding: 11px 16px; font: inherit; cursor: pointer; display: inline-block; }
-    .danger { background: #b42318; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
-    .card, .panel { background: white; border: 1px solid #e3e8f0; border-radius: 8px; box-shadow: 0 12px 30px rgba(24, 33, 47, 0.06); }
-    .card { overflow: hidden; color: inherit; }
-    .card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #dde4ef; }
-    .card div { padding: 16px; }
-    .card h2 { font-size: 20px; }
-    .card p { color: #5c6675; margin-bottom: 0; }
-    .panel { padding: 24px; }
-    .narrow { max-width: 680px; margin: 0 auto; }
-    form { display: grid; gap: 16px; margin-top: 18px; }
-    label { display: grid; gap: 8px; color: #3b4656; font-weight: 600; }
-    input, textarea { width: 100%; border: 1px solid #c8d2e0; border-radius: 8px; padding: 11px 12px; font: inherit; background: white; }
-    textarea { resize: vertical; }
-    .paste-hint { color: #667386; font-size: 13px; font-weight: 500; }
-    .preview { display: flex; align-items: center; gap: 12px; border: 1px solid #d7dfeb; border-radius: 8px; padding: 10px; background: #f8fafc; }
-    .preview[hidden] { display: none; }
-    .preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; background: #dde4ef; }
-    .preview span { color: #3b4656; overflow-wrap: anywhere; }
-    .notice { border-radius: 8px; padding: 12px 14px; background: #e8f3ff; color: #164a86; }
-    .error { background: #feeceb; color: #9f1f17; }
-    .empty { color: #5c6675; }
-    .detail { max-width: 860px; margin: 0 auto; }
-    .detail img { width: 100%; max-height: 560px; object-fit: contain; background: #dde4ef; border-radius: 8px; margin: 20px 0; }
-    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f0f4f8; border-radius: 8px; padding: 16px; line-height: 1.55; }
-    .tags { color: #1956a3; font-size: 14px; }
-    .admin-list { display: grid; gap: 16px; }
-    .admin-item { display: grid; grid-template-columns: 180px 1fr auto; gap: 20px; align-items: start; }
-    .admin-thumb { width: 180px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: #dde4ef; }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .actions form { margin: 0; display: block; }
-    .status { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700; background: #e7edf6; color: #40516a; margin-bottom: 10px; }
-    .status.pending { background: #fff4d6; color: #7a4c00; }
-    .status.approved { background: #ddf7e6; color: #146c37; }
-    .status.rejected { background: #feeceb; color: #9f1f17; }
-    @media (max-width: 720px) {
-      main { width: min(100% - 24px, 1120px); padding-top: 24px; }
-      .topbar, .admin-item { grid-template-columns: 1fr; display: grid; align-items: stretch; }
-      .admin-thumb { width: 100%; }
-      .topbar h1 { font-size: 40px; }
-    }
-  `;
 }

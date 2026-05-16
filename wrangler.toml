@@ -6,6 +6,10 @@ routes = [
   { pattern = "prompt.io99.xyz", custom_domain = true }
 ]
 
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "promptvault-db"
