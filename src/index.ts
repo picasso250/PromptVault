@@ -158,8 +158,43 @@ async function detail(url: URL, env: Env): Promise<Response> {
         <h1>${escapeHtml(prompt.title)}</h1>
         ${prompt.tags ? `<p class="tags">${escapeHtml(prompt.tags)}</p>` : ""}
         ${prompt.description ? `<p>${escapeHtml(prompt.description)}</p>` : ""}
-        <pre>${escapeHtml(prompt.prompt_text)}</pre>
+        <div class="prompt-toolbar">
+          <h2>Prompt</h2>
+          <button type="button" class="copy-prompt" data-copy-target="prompt-text">复制 Prompt</button>
+        </div>
+        <pre id="prompt-text">${escapeHtml(prompt.prompt_text)}</pre>
+        <textarea id="prompt-copy-source" class="copy-source" readonly>${escapeHtml(prompt.prompt_text)}</textarea>
       </article>
+      <script>
+        (() => {
+          const button = document.querySelector(".copy-prompt");
+          const source = document.getElementById("prompt-copy-source");
+          if (!button || !source) return;
+
+          const setLabel = (label) => {
+            button.textContent = label;
+            window.setTimeout(() => {
+              button.textContent = "复制 Prompt";
+            }, 1800);
+          };
+
+          button.addEventListener("click", async () => {
+            try {
+              if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(source.value);
+              } else {
+                source.hidden = false;
+                source.select();
+                document.execCommand("copy");
+                source.hidden = true;
+              }
+              setLabel("已复制");
+            } catch {
+              setLabel("复制失败");
+            }
+          });
+        })();
+      </script>
     `)
   );
 }
